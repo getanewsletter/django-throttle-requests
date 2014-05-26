@@ -2,9 +2,10 @@ import functools
 from django.utils.decorators import available_attrs
 
 from throttle.zones import get_zone
+from throttle.exceptions import RateLimitExceeded
 
 
-def throttle(view_func=None, zone='default'):
+def throttle(view_func=None, zone='default', callback=None):
     def _enforce_throttle(func):
         @functools.wraps(func, assigned=available_attrs(view_func))
         def _wrapped_view(request, *args, **kwargs):
@@ -12,7 +13,12 @@ def throttle(view_func=None, zone='default'):
             _throttle_zone = get_zone(zone)
 
             # raises an exception if the rate limit is exceeded
-            response = _throttle_zone.process_view(request, func, args, kwargs)
+            try:
+                response = _throttle_zone.process_view(request, func, args, kwargs)
+            except RateLimitExceeded, e:
+                if callback:
+                    callback()
+                raise e
             return response
         return _wrapped_view
 
