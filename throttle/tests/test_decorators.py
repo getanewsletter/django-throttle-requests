@@ -7,7 +7,7 @@ from throttle.decorators import throttle
 from throttle.exceptions import ThrottleZoneNotDefined
 
 
-def callback_function():
+def callback_function(request):
     callback_function.is_called = True
     return HttpResponse('OK')
 callback_function.is_called = False

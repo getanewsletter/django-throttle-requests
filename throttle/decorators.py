@@ -17,7 +17,7 @@ def throttle(view_func=None, zone='default', callback=None):
                 response = _throttle_zone.process_view(request, func, args, kwargs)
             except RateLimitExceeded, e:
                 if callback:
-                    callback()
+                    callback(request, *args, **kwargs)
                 raise e
             return response
         return _wrapped_view
