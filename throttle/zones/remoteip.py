@@ -1,3 +1,5 @@
+import hashlib
+
 class RemoteIP:
     def __init__(self, **config):
         pass
@@ -6,4 +8,5 @@ class RemoteIP:
         """
         Return our best crack at the remote IP address
         """
-        return request.META.get('HTTP_X_FORWARDED_FOR', "") or request.META.get('REMOTE_ADDR')
+        key = request.META.get('HTTP_X_FORWARDED_FOR', "") or request.META.get('REMOTE_ADDR')
+        return hashlib.md5(key).hexdigest()
