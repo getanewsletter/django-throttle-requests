@@ -1,7 +1,9 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import os
 import sys
 import optparse
+from contextlib import contextmanager
 from django.conf import settings
 
 if not settings.configured:
@@ -27,6 +29,8 @@ if not settings.configured:
         INSTALLED_APPS = [
             'throttle',
             ],
+
+        MIDDLEWARE_CLASSES = [],
 
         SECRET_KEY = "asdfnasdf;asdfasdfas",
 
@@ -54,24 +58,65 @@ if not settings.configured:
         THROTTLE_BACKEND = 'throttle.backends.cache.CacheBackend'
         )
 
+
+@contextmanager
+def record_coverage(enable_coverage=False):
+    """
+    Start the coverage module if we've chose to run with test coverage enabled.
+    """
+
+    # If coverage is not enabled, we don't have to bother with the rest of this function.
+    if not enable_coverage:
+        yield
+        return
+
+    try:
+        from coverage import coverage
+    except ImportError:
+        print("You are attempting to run with coverage turned on, but the coverage module is not installed!", file=sys.stderr)
+        print("Try sudo pip install coverage", file=sys.stderr)
+        sys.exit(1)
+
+    cov = coverage(include="throttle/*")
+    cov.erase()
+    cov.start()
+
+    yield
+
+    cov.stop()
+    cov.html_report(directory='htmlcov')
+
+
 def runtests(*test_args, **kwargs):
-    '''
+    """
     Invoke Django's test runner and collect output.
     Returns 0 if there were no failures
-    '''
+    """
+    coverage_enabled = kwargs.get("coverage", False) or os.environ.get("WITH_COVERAGE", "False") == "True"
+
+    import django
     from django.test.utils import get_runner
 
-    if not test_args:
-        test_args = ['throttle']
-    TestRunner = get_runner(settings)
-    test_runner = TestRunner(verbosity=kwargs.get('verbosity', 1), interactive=kwargs.get('interactive', False), failfast=kwargs.get('failfast'))
-    failures = test_runner.run_tests(test_args)
+    with record_coverage(coverage_enabled):
+        try:
+            django.setup()
+        except AttributeError:
+            pass  # django.setup() only for Django >= 1.7
+
+        if not test_args:
+            test_args = ['throttle']
+        TestRunner = get_runner(settings)
+        test_runner = TestRunner(verbosity=kwargs.get('verbosity', 1), interactive=kwargs.get('interactive', False), failfast=kwargs.get('failfast'))
+        failures = test_runner.run_tests(test_args)
+
     sys.exit(failures)
+
 
 if __name__ == '__main__':
     parser = optparse.OptionParser()
     parser.add_option('--failfast', action='store_true', default=False, dest='failfast')
-    parser.add_option('--verbosity', type="int", default=1,dest='verbosity')
+    parser.add_option('--coverage', action='store_true', default=False, dest='coverage', help="generate an HTML coverage report")
+    parser.add_option('--verbosity', type="int", default=1, dest='verbosity')
     (options, args) = parser.parse_args()
 
-    runtests(failfast=options.failfast, varbosity=options.verbosity, *args)
+    runtests(failfast=options.failfast, verbosity=options.verbosity, coverage=options.coverage, *args)

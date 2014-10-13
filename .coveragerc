@@ -1,0 +1,11 @@
+# Test coverage configuration.
+# Usage:
+#   python runtests --coverage
+[run]
+source = throttle
+omit =
+    throttle/tests/*
+
+[report]
+# Ignore missing source files, i.e. fake template-generated "files"
+ignore_errors = true
